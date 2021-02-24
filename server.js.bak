@@ -1,0 +1,431 @@
+const Hapi = require("@hapi/hapi");
+const { Client } = require("@elastic/elasticsearch");
+const client = new Client({ node: "http://localhost:9200" });
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const RoleController = require("./controllers/RoleController");
+const init = async () => {
+  const server = Hapi.server({
+    port: 3200,
+    host: "localhost",
+  });
+
+  await server.start();
+  console.log("Server running on %s", server.info.uri);
+
+  server.route({
+    method: "PATCH",
+    path: "/updateRole",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        //id:reques.payload.id
+        // console.log(request.payload.name);
+        console.log(request.payload.description);
+        await client
+          .index({
+            index: "roles",
+            id: request.payload.id,
+            body: {
+              name: request.payload.name,
+              description: request.payload.description,
+              modules: request.payload.modules,
+            },
+          })
+          .catch((err) => {
+            console.log(err.meta);
+            return err;
+          });
+
+        return { msg: "success" };
+      },
+    },
+  });
+
+  server.route({
+    method: "GET",
+    path: "/getRolesForCreateUser",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        await client.indices.refresh({ index: "roles" });
+        let result = client.search({
+          index: "roles",
+          body: {
+            query: {
+              match_all: {},
+            },
+          },
+        });
+
+        return (await result).body.hits.hits;
+      },
+    },
+  });
+
+  // server.route({
+  //   method: "GET",
+  //   path: "/getRole/{id}",
+  //   options: {
+  //     cors: true,
+  //     handler: async function (request, h) {
+  //       // console.log(request.payload.id);
+  //       await client.indices.refresh({ index: "roles" });
+
+  //       const result = await client
+  //         .get({
+  //           index: "roles",
+  //           id: request.params.id,
+  //         })
+  //         .catch((err) => console.log(err));
+  //       return result.body._source;
+  //     },
+  //   },
+  // });
+
+  server.route({
+    method: "GET",
+    path: "/getRole/{id}",
+    options: {
+      cors: true,
+      handler: RoleController.getRole,
+    },
+  });
+
+  server.route({
+    method: "GET",
+    path: "/getUser/{id}",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        // console.log(request.payload.id);
+        await client.indices.refresh({ index: "users" });
+
+        const result = await client
+          .get({
+            index: "users",
+            id: request.params.id,
+          })
+          .catch((err) => console.log(err));
+        return result.body._source;
+      },
+    },
+  });
+
+  server.route({
+    method: "POST",
+    path: "/addRoles",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        // return request.payload.modulesData;
+
+        const result = await client.index({
+          index: "roles",
+          body: {
+            name: request.payload.name,
+            description: request.payload.description,
+            modules: request.payload.modules,
+          },
+        });
+        // console.log(request.payload.data);
+        return result;
+      },
+    },
+  });
+
+  server.route({
+    method: "GET",
+    path: "/getRoles",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        await client.indices.refresh({ index: "roles" });
+        const result = await client.search({
+          index: "roles",
+          body: {
+            query: {
+              match_all: {},
+            },
+          },
+        });
+
+        return result.body.hits.hits;
+      },
+    },
+  });
+
+  server.route({
+    method: "DELETE",
+    path: "/deleteRoles",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        console.log(request.payload.id);
+        await client.delete({
+          index: "roles",
+          type: "_doc",
+          id: request.payload.id,
+        });
+        await client.indices.refresh({ index: "roles" });
+        const result = await client.search({
+          index: "roles",
+          body: {
+            query: {
+              match_all: {},
+            },
+          },
+        });
+        // console.log(result);
+        return result.body.hits.hits;
+      },
+    },
+  });
+
+  server.route({
+    method: "DELETE",
+    path: "/deleteUser",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        console.log(request.payload.id);
+        await client.delete({
+          index: "users",
+          type: "_doc",
+          id: request.payload.id,
+        });
+        await client.indices.refresh({ index: "users" });
+        const result = await client.search({
+          index: "users",
+          body: {
+            query: {
+              match_all: {},
+            },
+          },
+        });
+        // console.log(result);
+        return result.body.hits.hits;
+      },
+    },
+  });
+
+  server.route({
+    method: "GET",
+    path: "/createGamesDB",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        const reuslt = await client.indices.create({
+          index: "games",
+        });
+        return result;
+      },
+    },
+  });
+
+  server.route({
+    method: "GET",
+    path: "/insertGameData",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        const games = [
+          { name: "Assassins Creed" },
+          { name: "Prince of persia" },
+          { name: "hitman" },
+          { name: "Grand Theft Auto" },
+          { name: "Minecraft" },
+          { name: "Counter Strike" },
+          { name: "Chicken Invaders" },
+          { name: "Ultimate Ninja Storm" },
+          { name: "Dragonball Xenoverse" },
+          { name: "Bodukai Tenkachi" },
+          { name: "Mystery Legends" },
+          { name: "Farm Frenzy" },
+          { name: "Among US" },
+          { name: "PUBG" },
+          { name: "Call of Duty" },
+          { name: "Witcher" },
+          { name: "Farm Frenzy" },
+          { name: "Overwatch" },
+          { name: "Forza Horizen" },
+          { name: "The Crew" },
+          { name: "Need for speed" },
+          { name: "Cyberpunk" },
+          { name: "Pokemon GO" },
+          { name: "Sanandreas" },
+          { name: "Doom" },
+          { name: "Clash of clans" },
+          { name: "Halo" },
+          { name: "Far cry" },
+          { name: "Tom Clancy" },
+          { name: "Apex Legends" },
+          { name: "League of legends" },
+          { name: "Ben 10" },
+          { name: "Candy Crush Saga" },
+          { name: "Teris" },
+          { name: "Farmville" },
+          { name: "City Ville" },
+        ];
+        const body = games.flatMap((doc) => [
+          { index: { _index: "games" } },
+          doc,
+        ]);
+        const { body: bulkResponse } = await client.bulk({
+          refresh: true,
+          body,
+        });
+        return body;
+      },
+    },
+  });
+  server.route({
+    method: "GET",
+    path: "/getGames",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        await client.indices.refresh({ index: "users" });
+        const result = await client.search({
+          index: "games",
+          body: {
+            query: {
+              match_all: {},
+            },
+          },
+        });
+        return result.body.hits.hits;
+      },
+    },
+  });
+
+  server.route({
+    method: "GET",
+    path: "/getUsers",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        await client.indices.refresh({ index: "users" });
+        const result = await client.search({
+          index: "users",
+          body: {
+            query: {
+              match_all: {},
+            },
+          },
+        });
+        return result.body.hits.hits;
+      },
+    },
+  });
+
+  server.route({
+    method: "POST",
+    path: "/createDB",
+    handler: async function (request, h) {
+      const result = await client.indices.create({
+        index: "users",
+      });
+      return result;
+    },
+  });
+
+  server.route({
+    method: "POST",
+    path: "/createUser",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        const password = await bcrypt.hash(request.payload.password, 10);
+        const result = await client.index({
+          index: "users",
+          body: {
+            username: request.payload.username,
+            firstName: request.payload.firstName,
+            lastName: request.payload.lastName,
+            email: request.payload.email,
+            password,
+            status: request.payload.status,
+            type: "user",
+            roles: request.payload.roles,
+          },
+        });
+        return { msg: "success" };
+      },
+    },
+  });
+
+  server.route({
+    method: "POST",
+    path: "/login",
+    options: {
+      cors: true,
+      handler: async function (request, h) {
+        const email = request.payload.email;
+        const password = request.payload.password;
+        const checkEmail = await client.search({
+          index: "users",
+          body: {
+            query: {
+              match_phrase: {
+                email,
+              },
+            },
+          },
+        });
+        if (checkEmail.body.hits.total.value === 1) {
+          const id = checkEmail.body.hits.hits[0]._id;
+          const data = checkEmail.body.hits.hits[0]._source;
+          const match = await bcrypt.compare(password, data.password);
+          if (match) {
+            const token = jwt.sign({ id }, "aa");
+            return { status: true, token, type: data.type };
+          } else {
+            return { status: false, msg: "Invalid Username or password" };
+          }
+        }
+        return { status: false, msg: "Invalid Username or password" };
+      },
+    },
+  });
+
+  server.route({
+    method: "POST",
+    path: "/deleteDB",
+    handler: async function (request, h) {
+      const result = await client.indices.delete({
+        index: "users",
+      });
+      return result;
+    },
+  });
+
+  server.route({
+    method: "POST",
+    path: "/createDBRoles",
+    handler: async function (request, h) {
+      const result = await client.indices.create({
+        index: "roles",
+      });
+      return result;
+    },
+  });
+
+  server.route({
+    method: "POST",
+    path: "/deleteDBRoles",
+    handler: async function (request, h) {
+      const result = await client.indices.delete({
+        index: "roles",
+      });
+      return result;
+    },
+  });
+};
+
+process.on("unhandledRejection", (err) => {
+  console.log(err);
+  process.exit(1);
+});
+
+init();
