@@ -9,7 +9,7 @@ const AuthController = require("./controllers/AuthController");
 const init = async () => {
   const server = Hapi.server({
     port: 3200,
-    host: "https://react-node-rapidops.herokuapp.com",
+    host: "0.0.0.0",
   });
 
   await server.start();
