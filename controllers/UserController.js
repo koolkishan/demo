@@ -33,7 +33,7 @@ module.exports.updateUser = async function (request, h) {
         email: request.payload.email,
         password,
         status: request.payload.status,
-        type: "user",
+        type: "admin",
         roles: request.payload.roles,
       },
     })
